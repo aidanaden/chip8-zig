@@ -256,14 +256,14 @@ pub fn cycle(self: *Self) void {
                 // `FX55`
                 OpRegisterTag.Dump => {
                     var i: u16 = 0;
-                    while (i < op_reg.register) : (i += 1) {
+                    while (i <= op_reg.register) : (i += 1) {
                         self.memory[self.index + i] = self.registers[i];
                     }
                 },
                 // `FX65`
                 OpRegisterTag.Load => {
                     var i: u16 = 0;
-                    while (i < op_reg.register) : (i += 1) {
+                    while (i <= op_reg.register) : (i += 1) {
                         self.registers[i] = self.memory[self.index + i];
                     }
                 },

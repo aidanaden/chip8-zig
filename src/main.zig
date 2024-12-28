@@ -98,7 +98,7 @@ pub const SdlContext = struct {
             sdl.SDL_Log("Unable to create renderer: %s", sdl.SDL_GetError());
             return error.SDLInitializationFailed;
         };
-        const texture = sdl.SDL_CreateTexture(renderer, sdl.SDL_PIXELFORMAT_RGB888, sdl.SDL_TEXTUREACCESS_STREAMING, 64, 32) orelse {
+        const texture = sdl.SDL_CreateTexture(renderer, sdl.SDL_PIXELFORMAT_RGB888, sdl.SDL_TEXTUREACCESS_STREAMING, GRAPHIC_WIDTH, GRAPHIC_HEIGHT) orelse {
             sdl.SDL_Log("Unable to create texture: %s", sdl.SDL_GetError());
             return error.SDLInitializationFailed;
         };
@@ -114,7 +114,7 @@ pub const SdlContext = struct {
     }
 
     // tick rate of 16ms for 60fps
-    const TICK_RATE_MS: usize = 16 * 1000 * 1000;
+    const TICK_RATE_MS: usize = 400 / 1000;
     pub fn tick(self: *const Self, cpu: *const Chip8) void {
         _ = sdl.SDL_RenderClear(self.renderer);
 
@@ -136,6 +136,6 @@ pub const SdlContext = struct {
         _ = sdl.SDL_RenderCopy(self.renderer, self.texture, null, null);
         sdl.SDL_RenderPresent(self.renderer);
 
-        std.time.sleep(TICK_RATE_MS * 1);
+        sdl.SDL_Delay(TICK_RATE_MS);
     }
 };
