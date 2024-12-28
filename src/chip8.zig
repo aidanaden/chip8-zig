@@ -13,9 +13,9 @@ const OpRegisterDataTag = opcode.OpRegisterDataTag;
 const OpRegisterRegisterTag = opcode.OpRegisterRegisterTag;
 
 /// Constants
-const GRAPHIC_HEIGHT = 32;
-const GRAPHIC_WIDTH = 64;
-const MEMORY_SIZE = 4096;
+pub const GRAPHIC_HEIGHT = 32;
+pub const GRAPHIC_WIDTH = 64;
+pub const MEMORY_SIZE = 4096;
 const FONTSET = [_]u8{
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
     0x20, 0x60, 0x20, 0x20, 0x70, // 1
@@ -49,6 +49,9 @@ memory: [MEMORY_SIZE]u8,
 
 /// Graphics
 /// 64 x 32 array of monochrome
+///
+/// Pixel positions are stored row by row
+/// in a single array, (32 rows of width 64)
 graphics: [GRAPHIC_WIDTH * GRAPHIC_HEIGHT]u8,
 
 /// 16 Registers V0-VF
@@ -123,15 +126,15 @@ pub fn cycle(self: *Self) void {
 
     // Decode
     const decoded_opt = OpCode.decode(self.opcode);
+
+    // Skip skipped opcode
     if (decoded_opt == null) {
         self.increment_program_counter();
         return;
     }
-    const decoded = decoded_opt.?;
-
-    std.debug.print("raw: {}, raw hex: {x}, decoded: {}\n", .{ self.opcode, self.opcode, decoded });
 
     // Execute
+    const decoded = decoded_opt.?;
     switch (decoded) {
         OpCodeTag.op_void => |op_void| {
             switch (op_void) {
@@ -373,15 +376,19 @@ pub fn cycle(self: *Self) void {
                 var x_line: usize = 0;
 
                 while (x_line < 8) : (x_line += 1) {
-                    const v: u8 = 0x80;
-                    const is_active: u8 = (pixel & (v >> @intCast(x_line)));
+                    const msb: u8 = 0x80;
+                    const is_active: u8 = (pixel & (msb >> @intCast(x_line)));
+                    // Skip if pixel is disabled
                     if (is_active == 0) {
                         continue;
                     }
 
-                    // TODO: determine how idx calculation works exactly
+                    // Calculate the x-value WITHIN the current row
+                    // `tY` here is used to calculate the current row
                     const tX = (x + x_line) % GRAPHIC_WIDTH;
                     const tY = (y + y_line) % GRAPHIC_HEIGHT;
+
+                    // Pixel position = row number (y-coordinate) * width + x-coordinate
                     const idx = tX + tY * GRAPHIC_WIDTH;
                     const current_pixel_state = self.graphics[idx];
 
@@ -396,6 +403,14 @@ pub fn cycle(self: *Self) void {
     }
 
     self.increment_program_counter();
+
+    if (self.delay_timer > 0) {
+        self.delay_timer -= 1;
+    }
+
+    if (self.sound_timer > 0) {
+        self.sound_timer -= 1;
+    }
 }
 
 fn fetch_opcode(self: *Self) void {

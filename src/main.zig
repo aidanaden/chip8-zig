@@ -5,6 +5,82 @@ const sdl = @cImport({
     @cInclude("SDL2/SDL.h");
 });
 const Chip8 = @import("chip8.zig");
+const GRAPHIC_HEIGHT = Chip8.GRAPHIC_HEIGHT;
+const GRAPHIC_WIDTH = Chip8.GRAPHIC_WIDTH;
+
+const KEYMAP: [16]c_int = [_]c_int{
+    sdl.SDL_SCANCODE_X,
+    sdl.SDL_SCANCODE_1,
+    sdl.SDL_SCANCODE_2,
+    sdl.SDL_SCANCODE_3,
+    sdl.SDL_SCANCODE_Q,
+    sdl.SDL_SCANCODE_W,
+    sdl.SDL_SCANCODE_E,
+    sdl.SDL_SCANCODE_A,
+    sdl.SDL_SCANCODE_S,
+    sdl.SDL_SCANCODE_D,
+    sdl.SDL_SCANCODE_Z,
+    sdl.SDL_SCANCODE_C,
+    sdl.SDL_SCANCODE_4,
+    sdl.SDL_SCANCODE_R,
+    sdl.SDL_SCANCODE_F,
+    sdl.SDL_SCANCODE_V,
+};
+
+pub fn main() !void {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    var arg_it = try std.process.argsWithAllocator(allocator);
+    // We skip the first argument since it's
+    // the current executable file path
+    _ = arg_it.skip();
+
+    const filename = arg_it.next() orelse {
+        std.debug.print("No ROM added!", .{});
+        return;
+    };
+
+    var cpu = try Chip8.init();
+    const sdl_context = try SdlContext.init();
+    defer sdl_context.deinit();
+
+    // Load ROM into cpu
+    try cpu.load_rom(filename);
+
+    var live = true;
+    while (live) {
+        // Emulator cycle
+        cpu.cycle();
+
+        var event: sdl.SDL_Event = undefined;
+        while (sdl.SDL_PollEvent(&event) != 0) {
+            switch (event.type) {
+                sdl.SDL_QUIT => {
+                    live = false;
+                },
+                sdl.SDL_KEYDOWN => {
+                    for (0..16) |i| {
+                        if (event.key.keysym.scancode == KEYMAP[i]) {
+                            cpu.keys[i] = 1;
+                        }
+                    }
+                },
+                sdl.SDL_KEYUP => {
+                    for (0..16) |i| {
+                        if (event.key.keysym.scancode == KEYMAP[i]) {
+                            cpu.keys[i] = 0;
+                        }
+                    }
+                },
+                else => {},
+            }
+        }
+
+        sdl_context.tick(&cpu);
+    }
+}
 
 pub const SdlContext = struct {
     window: *sdl.SDL_Window,
@@ -48,10 +124,11 @@ pub const SdlContext = struct {
         _ = sdl.SDL_LockTexture(self.texture, null, @ptrCast(&bytes), &pitch);
 
         var y: usize = 0;
-        while (y < 32) : (y += 1) {
+        while (y < GRAPHIC_HEIGHT) : (y += 1) {
             var x: usize = 0;
-            while (x < 64) : (x += 1) {
-                bytes.?[y * 64 + x] = if (cpu.graphics[y * 64 + x] == 1) 0xFFFFFFFF else 0x000000FF;
+            while (x < GRAPHIC_WIDTH) : (x += 1) {
+                // Graphic pixels are stored row by row in a single array
+                bytes.?[y * GRAPHIC_WIDTH + x] = if (cpu.graphics[y * GRAPHIC_WIDTH + x] == 1) 0xFFFFFFFF else 0x000000FF;
             }
         }
         sdl.SDL_UnlockTexture(self.texture);
@@ -59,47 +136,6 @@ pub const SdlContext = struct {
         _ = sdl.SDL_RenderCopy(self.renderer, self.texture, null, null);
         sdl.SDL_RenderPresent(self.renderer);
 
-        std.time.sleep(12 * 1000 * 1000 * 1);
-        // sdl.SDL_Delay(TICK_RATE_MS);
+        std.time.sleep(TICK_RATE_MS * 1);
     }
 };
-
-pub fn main() !void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const allocator = arena.allocator();
-
-    var arg_it = try std.process.argsWithAllocator(allocator);
-
-    _ = arg_it.skip();
-
-    const filename = arg_it.next() orelse {
-        std.debug.print("No ROM added!", .{});
-        return;
-    };
-
-    var cpu = try Chip8.init();
-    const sdl_context = try SdlContext.init();
-
-    // Load ROM into cpu
-    try cpu.load_rom(filename);
-
-    var live = true;
-
-    while (live) {
-        // Emulator cycle
-        cpu.cycle();
-
-        var event: sdl.SDL_Event = undefined;
-        while (sdl.SDL_PollEvent(&event) != 0) {
-            switch (event.type) {
-                sdl.SDL_QUIT => {
-                    live = false;
-                },
-                else => {},
-            }
-        }
-
-        sdl_context.tick(&cpu);
-    }
-}
