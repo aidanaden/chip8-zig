@@ -10,7 +10,6 @@ pub const SdlContext = struct {
     window: *sdl.SDL_Window,
     renderer: *sdl.SDL_Renderer,
     texture: *sdl.SDL_Texture,
-    // allocator: Allocator,
 
     const Self = @This();
     pub fn init() !Self {
@@ -40,32 +39,57 @@ pub const SdlContext = struct {
 
     // tick rate of 16ms for 60fps
     const TICK_RATE_MS: usize = 16 * 1000 * 1000;
-    pub fn tick(self: *const Self) void {
+    pub fn tick(self: *const Self, cpu: *const Chip8) void {
         _ = sdl.SDL_RenderClear(self.renderer);
 
         // Build texture
+        var bytes: ?[*]u32 = null;
+        var pitch: c_int = 0;
+        _ = sdl.SDL_LockTexture(self.texture, null, @ptrCast(&bytes), &pitch);
+
+        var y: usize = 0;
+        while (y < 32) : (y += 1) {
+            var x: usize = 0;
+            while (x < 64) : (x += 1) {
+                bytes.?[y * 64 + x] = if (cpu.graphics[y * 64 + x] == 1) 0xFFFFFFFF else 0x000000FF;
+            }
+        }
+        sdl.SDL_UnlockTexture(self.texture);
 
         _ = sdl.SDL_RenderCopy(self.renderer, self.texture, null, null);
-
         sdl.SDL_RenderPresent(self.renderer);
-        sdl.SDL_Delay(TICK_RATE_MS);
+
+        std.time.sleep(12 * 1000 * 1000 * 1);
+        // sdl.SDL_Delay(TICK_RATE_MS);
     }
 };
 
 pub fn main() !void {
-    // const allocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    const sdl_context = try SdlContext.init();
-    defer sdl_context.deinit();
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
 
-    // Init chip8 cpu
-    // const cpu = try Chip8.init();
+    var arg_it = try std.process.argsWithAllocator(allocator);
+
+    _ = arg_it.skip();
+
+    const filename = arg_it.next() orelse {
+        std.debug.print("No ROM added!", .{});
+        return;
+    };
+
+    var cpu = try Chip8.init();
+    const sdl_context = try SdlContext.init();
 
     // Load ROM into cpu
+    try cpu.load_rom(filename);
 
     var live = true;
 
     while (live) {
         // Emulator cycle
+        cpu.cycle();
+
         var event: sdl.SDL_Event = undefined;
         while (sdl.SDL_PollEvent(&event) != 0) {
             switch (event.type) {
@@ -76,6 +100,6 @@ pub fn main() !void {
             }
         }
 
-        sdl_context.tick();
+        sdl_context.tick(&cpu);
     }
 }
