@@ -416,7 +416,6 @@ pub fn cycle(self: *Self) void {
 fn fetch_opcode(self: *Self) void {
     const first = self.memory[self.program_counter];
     const second = self.memory[self.program_counter + 1];
-    std.debug.print("fetch_opcode: program counter {}, first {}, second {}\n", .{ self.program_counter, first, second });
     self.opcode = @truncate(@as(u16, first) << 8 | second);
 }
 
