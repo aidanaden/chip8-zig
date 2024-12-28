@@ -18,6 +18,7 @@ nix run github:aidanaden/chip8-zig
 
 ## Roadmap/Future upgrades
 
+- [ ] Wasm (browser)
 - [ ] Audio
 - [ ] Chip48/SuperChip (extra instructions)
 - [ ] Separate threads
