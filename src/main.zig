@@ -114,7 +114,7 @@ pub const SdlContext = struct {
     }
 
     // tick rate of 16ms for 60fps
-    const TICK_RATE_MS: usize = 400 / 1000;
+    const TICK_RATE_MS: usize = 60 / 1000;
     pub fn tick(self: *const Self, cpu: *const Chip8) void {
         _ = sdl.SDL_RenderClear(self.renderer);
 

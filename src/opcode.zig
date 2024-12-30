@@ -4,21 +4,99 @@ const OPCODE_CLEAR = 0x00E0;
 const OPCODE_RETURN = 0x00EE;
 
 pub const OpCodeTag = enum {
-    op_void,
-    op_address,
-    op_register,
-    op_register_data,
-    op_register_register,
-    op_draw,
+    /// Opcodes involving no arguments
+    /// Format: `00__`
+    @"00E0",
+    @"00EE",
+
+    /// Opcodes involving an address
+    /// Format: `_NNN` (`NNN` is a `u16` address)
+    @"1NNN",
+    @"2NNN",
+    ANNN,
+    BNNN,
+
+    /// Opcodes involving 1 register and 1 byte (8 bits)
+    /// Format: `_XNN` (`X` is register, `NN` is data)
+    @"3XNN",
+    @"4XNN",
+    @"6XNN",
+    @"7XNN",
+    CXNN,
+
+    /// Opcodes involving 2 registers
+    /// Format: `_XY_` (`X` is register 1, `Y` is register 2)
+    @"5XY0",
+    @"8XY0",
+    @"8XY1",
+    @"8XY2",
+    @"8XY3",
+    @"8XY4",
+    @"8XY5",
+    @"8XY7",
+    @"9XY0",
+
+    /// Opcodes involving only 1 register
+    /// Format: `_X__` (`X` is register)
+    @"8XY6",
+    @"8XYE",
+    EX9E,
+    EXA1,
+    FX0A,
+    FX07,
+    FX15,
+    FX18,
+    FX1E,
+    FX29,
+    FX33,
+    FX55,
+    FX65,
+
+    /// Opcode to draw sprite
+    /// Format: `DXYN` (`X` is register 1, `Y` is register 2, `N` is 4 bit data)
+    DXYN,
 };
 
 pub const OpCode = union(OpCodeTag) {
-    op_void: OpVoidTag,
-    op_address: OpAddress,
-    op_register: OpRegister,
-    op_register_data: OpRegisterData,
-    op_register_register: OpRegisterRegister,
-    op_draw: OpDraw,
+    @"00E0": struct {},
+    @"00EE": struct {},
+
+    @"1NNN": OpAddr,
+    @"2NNN": OpAddr,
+    ANNN: OpAddr,
+    BNNN: OpAddr,
+
+    @"3XNN": OpRegData,
+    @"4XNN": OpRegData,
+    @"6XNN": OpRegData,
+    @"7XNN": OpRegData,
+    CXNN: OpRegData,
+
+    @"5XY0": OpRegReg,
+    @"8XY0": OpRegReg,
+    @"8XY1": OpRegReg,
+    @"8XY2": OpRegReg,
+    @"8XY3": OpRegReg,
+    @"8XY4": OpRegReg,
+    @"8XY5": OpRegReg,
+    @"8XY7": OpRegReg,
+    @"9XY0": OpRegReg,
+
+    @"8XY6": OpReg,
+    @"8XYE": OpReg,
+    EX9E: OpReg,
+    EXA1: OpReg,
+    FX0A: OpReg,
+    FX07: OpReg,
+    FX15: OpReg,
+    FX18: OpReg,
+    FX1E: OpReg,
+    FX29: OpReg,
+    FX33: OpReg,
+    FX55: OpReg,
+    FX65: OpReg,
+
+    DXYN: OpDraw,
 
     const Self = @This();
     pub fn decode(raw_opcode: u16) ?Self {
@@ -26,63 +104,63 @@ pub const OpCode = union(OpCodeTag) {
         return switch (first) {
             0x0 => {
                 if (raw_opcode == OPCODE_CLEAR) {
-                    return Self{ .op_void = OpVoidTag.Clear };
+                    return Self{ .@"00E0" = .{} };
                 } else if (raw_opcode == OPCODE_RETURN) {
-                    return Self{ .op_void = OpVoidTag.Return };
+                    return Self{ .@"00EE" = .{} };
                 } else {
                     return null;
                 }
             },
             0x1 => {
-                return Self{ .op_address = OpAddress.decode(OpAddressTag.Jump, raw_opcode) };
+                return Self{ .@"1NNN" = OpAddr.decode(raw_opcode) };
             },
             0x2 => {
-                return Self{ .op_address = OpAddress.decode(OpAddressTag.Call, raw_opcode) };
+                return Self{ .@"2NNN" = OpAddr.decode(raw_opcode) };
             },
             0x3 => {
-                return Self{ .op_register_data = OpRegisterData.decode(OpRegisterDataTag.Equal, raw_opcode) };
+                return Self{ .@"3XNN" = OpRegData.decode(raw_opcode) };
             },
             0x4 => {
-                return Self{ .op_register_data = OpRegisterData.decode(OpRegisterDataTag.NotEqual, raw_opcode) };
+                return Self{ .@"4XNN" = OpRegData.decode(raw_opcode) };
             },
             0x5 => {
-                return Self{ .op_register_register = OpRegisterRegister.decode(OpRegisterRegisterTag.Equal, raw_opcode) };
+                return Self{ .@"5XY0" = OpRegReg.decode(raw_opcode) };
             },
             0x6 => {
-                return Self{ .op_register_data = OpRegisterData.decode(OpRegisterDataTag.Set, raw_opcode) };
+                return Self{ .@"6XNN" = OpRegData.decode(raw_opcode) };
             },
             0x7 => {
-                return Self{ .op_register_data = OpRegisterData.decode(OpRegisterDataTag.Increment, raw_opcode) };
+                return Self{ .@"7XNN" = OpRegData.decode(raw_opcode) };
             },
             0x8 => {
                 const last = raw_opcode & 0x000F;
                 return switch (last) {
                     0x0 => {
-                        return Self{ .op_register_register = OpRegisterRegister.decode(OpRegisterRegisterTag.Set, raw_opcode) };
+                        return Self{ .@"8XY0" = OpRegReg.decode(raw_opcode) };
                     },
                     0x1 => {
-                        return Self{ .op_register_register = OpRegisterRegister.decode(OpRegisterRegisterTag.Or, raw_opcode) };
+                        return Self{ .@"8XY1" = OpRegReg.decode(raw_opcode) };
                     },
                     0x2 => {
-                        return Self{ .op_register_register = OpRegisterRegister.decode(OpRegisterRegisterTag.And, raw_opcode) };
+                        return Self{ .@"8XY2" = OpRegReg.decode(raw_opcode) };
                     },
                     0x3 => {
-                        return Self{ .op_register_register = OpRegisterRegister.decode(OpRegisterRegisterTag.Xor, raw_opcode) };
+                        return Self{ .@"8XY3" = OpRegReg.decode(raw_opcode) };
                     },
                     0x4 => {
-                        return Self{ .op_register_register = OpRegisterRegister.decode(OpRegisterRegisterTag.Increment, raw_opcode) };
+                        return Self{ .@"8XY4" = OpRegReg.decode(raw_opcode) };
                     },
                     0x5 => {
-                        return Self{ .op_register_register = OpRegisterRegister.decode(OpRegisterRegisterTag.Decrement, raw_opcode) };
+                        return Self{ .@"8XY5" = OpRegReg.decode(raw_opcode) };
                     },
                     0x6 => {
-                        return Self{ .op_register = OpRegister.decode(OpRegisterTag.RightShift, raw_opcode) };
+                        return Self{ .@"8XY6" = OpReg.decode(raw_opcode) };
                     },
                     0x7 => {
-                        return Self{ .op_register_register = OpRegisterRegister.decode(OpRegisterRegisterTag.Subtract, raw_opcode) };
+                        return Self{ .@"8XY7" = OpRegReg.decode(raw_opcode) };
                     },
                     0xE => {
-                        return Self{ .op_register = OpRegister.decode(OpRegisterTag.LeftShift, raw_opcode) };
+                        return Self{ .@"8XYE" = OpReg.decode(raw_opcode) };
                     },
                     else => {
                         unreachable;
@@ -90,28 +168,28 @@ pub const OpCode = union(OpCodeTag) {
                 };
             },
             0x9 => {
-                return Self{ .op_register_register = OpRegisterRegister.decode(OpRegisterRegisterTag.NotEqual, raw_opcode) };
+                return Self{ .@"9XY0" = OpRegReg.decode(raw_opcode) };
             },
             0xA => {
-                return Self{ .op_address = OpAddress.decode(OpAddressTag.SetIdx, raw_opcode) };
+                return Self{ .ANNN = OpAddr.decode(raw_opcode) };
             },
             0xB => {
-                return Self{ .op_address = OpAddress.decode(OpAddressTag.JumpReg, raw_opcode) };
+                return Self{ .BNNN = OpAddr.decode(raw_opcode) };
             },
             0xC => {
-                return Self{ .op_register_data = OpRegisterData.decode(OpRegisterDataTag.AndRand, raw_opcode) };
+                return Self{ .CXNN = OpRegData.decode(raw_opcode) };
             },
             0xD => {
-                return Self{ .op_draw = OpDraw.decode(raw_opcode) };
+                return Self{ .DXYN = OpDraw.decode(raw_opcode) };
             },
             0xE => {
                 const last = raw_opcode & 0x00FF;
                 return switch (last) {
                     0x9E => {
-                        return Self{ .op_register = OpRegister.decode(OpRegisterTag.EqualKey, raw_opcode) };
+                        return Self{ .EX9E = OpReg.decode(raw_opcode) };
                     },
                     0xA1 => {
-                        return Self{ .op_register = OpRegister.decode(OpRegisterTag.NotEqualKey, raw_opcode) };
+                        return Self{ .EXA1 = OpReg.decode(raw_opcode) };
                     },
                     else => {
                         unreachable;
@@ -122,31 +200,31 @@ pub const OpCode = union(OpCodeTag) {
                 const last = raw_opcode & 0x00FF;
                 return switch (last) {
                     0x07 => {
-                        return Self{ .op_register = OpRegister.decode(OpRegisterTag.GetDelay, raw_opcode) };
+                        return Self{ .FX07 = OpReg.decode(raw_opcode) };
                     },
                     0x0A => {
-                        return Self{ .op_register = OpRegister.decode(OpRegisterTag.GetKey, raw_opcode) };
+                        return Self{ .FX0A = OpReg.decode(raw_opcode) };
                     },
                     0x15 => {
-                        return Self{ .op_register = OpRegister.decode(OpRegisterTag.SetDelay, raw_opcode) };
+                        return Self{ .FX15 = OpReg.decode(raw_opcode) };
                     },
                     0x18 => {
-                        return Self{ .op_register = OpRegister.decode(OpRegisterTag.SetSound, raw_opcode) };
+                        return Self{ .FX18 = OpReg.decode(raw_opcode) };
                     },
                     0x1E => {
-                        return Self{ .op_register = OpRegister.decode(OpRegisterTag.IncrementIdx, raw_opcode) };
+                        return Self{ .FX1E = OpReg.decode(raw_opcode) };
                     },
                     0x29 => {
-                        return Self{ .op_register = OpRegister.decode(OpRegisterTag.SetIdxSprite, raw_opcode) };
+                        return Self{ .FX29 = OpReg.decode(raw_opcode) };
                     },
                     0x33 => {
-                        return Self{ .op_register = OpRegister.decode(OpRegisterTag.SetBcd, raw_opcode) };
+                        return Self{ .FX33 = OpReg.decode(raw_opcode) };
                     },
                     0x55 => {
-                        return Self{ .op_register = OpRegister.decode(OpRegisterTag.Dump, raw_opcode) };
+                        return Self{ .FX55 = OpReg.decode(raw_opcode) };
                     },
                     0x65 => {
-                        return Self{ .op_register = OpRegister.decode(OpRegisterTag.Load, raw_opcode) };
+                        return Self{ .FX65 = OpReg.decode(raw_opcode) };
                     },
                     else => {
                         unreachable;
@@ -160,160 +238,61 @@ pub const OpCode = union(OpCodeTag) {
     }
 };
 
-/// Opcodes involving no arguments
-///
-/// Format: `00__`
-pub const OpVoidTag = enum {
-    /// 0x00E0
-    Clear,
-    /// 0x00EE
-    Return,
-};
-
 /// Opcodes involving an address
 ///
 /// Format: `_NNN` (`NNN` is a `u16` address)
-pub const OpAddressTag = enum {
-    /// 0x1NNN
-    Jump,
-    /// 0x2NNN
-    Call,
-    /// 0xANNN
-    SetIdx,
-    /// 0xBNNN
-    JumpReg,
-};
-
-pub const OpAddress = struct {
-    tag: OpAddressTag,
+pub const OpAddr = struct {
     address: u16,
 
     const Self = @This();
-    pub fn decode(tag: OpAddressTag, raw_opcode: u16) Self {
+    pub fn decode(raw_opcode: u16) Self {
         // Address is last 12 bits
         const address = raw_opcode & 0x0FFF;
         return Self{
-            .tag = tag,
             .address = address,
         };
     }
 };
 
-/// Opcodes involving 1 register and 1 byte (8 bits)
-///
-/// Format: `_XNN` (`X` is register, `NN` is data)
-pub const OpRegisterDataTag = enum {
-    /// `3XNN`
-    Equal,
-    /// `4XNN`
-    NotEqual,
-    /// `6XNN`
-    Set,
-    /// `7XNN`
-    Increment,
-    /// `CXNN`
-    AndRand,
-};
-
-pub const OpRegisterData = struct {
-    tag: OpRegisterDataTag,
+pub const OpRegData = struct {
     register: u4,
     data: u8,
 
     const Self = @This();
-    pub fn decode(tag: OpRegisterDataTag, raw_opcode: u16) Self {
+    pub fn decode(raw_opcode: u16) Self {
         // First register is bits 4-8
         const register: u4 = @intCast((raw_opcode & 0x0F00) >> 8);
         // Data is last 8 bits
         const data: u8 = @intCast(raw_opcode & 0x00FF);
         return Self{
-            .tag = tag,
             .register = register,
             .data = @truncate(data),
         };
     }
 };
 
-/// Opcodes involving 2 registers
-///
-/// Format: `_XY_` (`X` is register 1, `Y` is register 2)
-pub const OpRegisterRegisterTag = enum {
-    /// `5XY0`
-    Equal,
-    /// `8XY0`
-    Set,
-    /// `8XY1`
-    Or,
-    /// `8XY2`
-    And,
-    /// `8XY3`
-    Xor,
-    /// `8XY4`
-    Increment,
-    /// `8XY5`
-    Decrement,
-    /// `8XY7`
-    Subtract,
-    /// `9XY0`
-    NotEqual,
-};
-
-pub const OpRegisterRegister = struct {
-    tag: OpRegisterRegisterTag,
+pub const OpRegReg = struct {
     first: u4,
     second: u4,
 
     const Self = @This();
-    pub fn decode(tag: OpRegisterRegisterTag, raw_opcode: u16) Self {
+    pub fn decode(raw_opcode: u16) Self {
         // First register is bits 4-8
         const first: u4 = @intCast((raw_opcode & 0x0F00) >> 8);
         // Second register is bits 8-12
         const second: u4 = @intCast((raw_opcode & 0x00F0) >> 4);
-        return Self{ .tag = tag, .first = first, .second = second };
+        return Self{ .first = first, .second = second };
     }
 };
 
-/// Opcodes involving only 1 register
-///
-/// Format: `_X__` (`X` is register)
-pub const OpRegisterTag = enum {
-    /// `8XY6`
-    RightShift,
-    /// `8XYE`
-    LeftShift,
-    /// `EX9E`
-    EqualKey,
-    /// `EXA1`
-    NotEqualKey,
-    /// `FX0A`
-    GetKey,
-    /// `FX07`
-    GetDelay,
-    /// `FX15`
-    SetDelay,
-    /// `FX18`
-    SetSound,
-    /// `FX1E`
-    IncrementIdx,
-    /// `FX29`
-    SetIdxSprite,
-    /// `FX33`
-    SetBcd,
-    /// `FX55`
-    Dump,
-    /// `FX65`
-    Load,
-};
-
-pub const OpRegister = struct {
-    tag: OpRegisterTag,
+pub const OpReg = struct {
     register: u4,
 
     const Self = @This();
-    pub fn decode(tag: OpRegisterTag, raw_opcode: u16) Self {
+    pub fn decode(raw_opcode: u16) Self {
         // Register is bits 4-8
         const register: u4 = @intCast((raw_opcode & 0x0F00) >> 8);
-        return Self{ .tag = tag, .register = register };
+        return Self{ .register = register };
     }
 };
 
